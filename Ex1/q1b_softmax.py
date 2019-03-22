@@ -77,9 +77,10 @@ def test_softmax():
     your tests be graded.
     """
     print "Running your tests..."
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    test1 = softmax(np.array([0, 0]))
+    print test1
+    ans1 = np.array([0.5,  0.5])
+    assert np.allclose(test1, ans1, rtol=1e-05, atol=1e-06)
 
 
 if __name__ == "__main__":
