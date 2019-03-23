@@ -14,9 +14,8 @@ def normalizeRows(x):
     unit length.
     """
 
-    ### YOUR CODE HERE
-    ### END YOUR CODE
-
+    row_magnitude = np.sqrt(np.sum(x ** 2, axis=1))
+    x = x / row_magnitude.reshape(-1, 1)
     return x
 
 
@@ -56,9 +55,16 @@ def softmaxCostAndGradient(predicted, target, outputVectors, dataset):
     assignment!
     """
 
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    U = outputVectors
+    uo = U[target]
+    vc = predicted
+    U_dot_Vc = U.dot(vc)
+    softmax_U_dot_vc = softmax(U_dot_Vc)
+
+    cost = -np.log(softmax_U_dot_vc[target])
+    gradPred = -uo + np.sum(softmax_U_dot_vc[:, np.newaxis] * U, axis=0)
+    grad = softmax_U_dot_vc[:, np.newaxis] * np.tile(vc, (outputVectors.shape[0], 1))
+    grad[target] -= vc
 
     return cost, gradPred, grad
 
@@ -94,9 +100,21 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset,
     indices = [target]
     indices.extend(getNegativeSamples(target, dataset, K))
 
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    U = outputVectors
+    uo = U[target]
+    vc = predicted
+    sigmoid_uo_dot_vc = sigmoid(uo.dot(vc))
+
+    cost = -np.log(sigmoid_uo_dot_vc)
+    gradPred = (sigmoid_uo_dot_vc - 1.0) * uo
+    grad = np.zeros(outputVectors.shape)
+    grad[target] = (sigmoid_uo_dot_vc - 1.0) * vc
+
+    for k in indices[1:]:
+        sigmoid_minus_uk_dot_vc = sigmoid(-U[k].dot(vc))
+        cost -= np.log(sigmoid_minus_uk_dot_vc)
+        gradPred += (1.0 - sigmoid_minus_uk_dot_vc) * U[k]
+        grad[k] += (1.0 - sigmoid_minus_uk_dot_vc) * vc
 
     return cost, gradPred, grad
 
@@ -129,9 +147,15 @@ def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
     gradIn = np.zeros(inputVectors.shape)
     gradOut = np.zeros(outputVectors.shape)
 
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    current_word_index = tokens[currentWord]
+    currentWordVector = inputVectors[current_word_index]
+    context_indexes = [tokens[contextWord] for contextWord in contextWords]
+    for j in context_indexes:
+        curr_cost, curr_gradPred, curr_grad = word2vecCostAndGradient(currentWordVector, j, outputVectors, dataset)
+
+        cost += curr_cost
+        gradIn[current_word_index] += curr_gradPred
+        gradOut += curr_grad
 
     return cost, gradIn, gradOut
 
