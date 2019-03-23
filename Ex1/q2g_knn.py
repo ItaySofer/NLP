@@ -5,7 +5,7 @@ from q2e_word2vec import normalizeRows
 def knn(vector, matrix, k=10):
     """
     Finds the k-nearest rows in the matrix with comparison to the vector.
-    Use the cosine similarity as a distance metric.
+    Use the cosine cos_similarity as a distance metric.
 
     Arguments:
     vector -- A D dimensional vector
@@ -17,8 +17,17 @@ def knn(vector, matrix, k=10):
 
     nearest_idx = []
 
-    ### YOUR CODE
-    ### END YOUR CODE
+    m_dot_v = matrix.dot(vector)
+    row_magnitude = np.sqrt(np.sum(matrix ** 2, axis=1))  # in case vectors are not normalized
+    v_magnitude = np.sqrt(np.sum(vector ** 2))  # in case vectors are not normalized
+
+    cos_similarity = m_dot_v / (row_magnitude * v_magnitude)
+
+    index_magnitude_tuples = [(index, magnitude) for index, magnitude in enumerate(cos_similarity)]
+    index_magnitude_tuples.sort(key=lambda tup: tup[1], reverse=True)
+
+    nearest_idx = [tup[0] for tup in index_magnitude_tuples[:k]]
+
     return nearest_idx
 
 def test_knn():
