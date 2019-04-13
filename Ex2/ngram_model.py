@@ -85,10 +85,21 @@ def test_ngram():
     print "#bigrams: " + str(len(bigram_counts))
     print "#unigrams: " + str(len(unigram_counts))
     print "#tokens: " + str(token_count)
-    perplexity = evaluate_ngrams(S_dev, trigram_counts, bigram_counts, unigram_counts, token_count, 0.5, 0.4)
-    print "#perplexity: " + str(perplexity)
-    ### YOUR CODE HERE
-    ### END YOUR CODE
+
+    results = dict()
+    for lambda1 in np.arange(0, 1, 0.1):
+        for lambda2 in np.arange(0, 1-lambda1, 0.1):
+            results[(lambda1, lambda2,)] = \
+                evaluate_ngrams(S_dev, trigram_counts, bigram_counts, unigram_counts, token_count, lambda1, lambda2)
+
+    print "#perplexity for lambda1(left) lambda2(top) grid search:"
+    pd.options.display.float_format = '{:07.3f}'.format
+    idx = pd.MultiIndex.from_tuples(results.keys())
+    df = pd.DataFrame(list(results.values()), index=idx, columns=['Score']).unstack(fill_value=-1)['Score']
+    print df.to_string()
+
+    best_result = min(results.items(), key=lambda p: p[1])
+    print"#best coefficients (lambda1, lambda2) are " + str(best_result[0]) + " with perplexity " + str(best_result[1])
 
 
 if __name__ == "__main__":
