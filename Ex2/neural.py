@@ -67,7 +67,7 @@ def forward_backward_prop(data, labels, params, dimensions):
     theta = h.dot(W2) + b2
     y_hat = softmax(theta)
 
-    cost = -np.sum(labels * np.log2(y_hat))
+    cost = -np.sum(labels * np.log(y_hat))
     ### END YOUR CODE
 
     ### YOUR CODE HERE: backward propagation
