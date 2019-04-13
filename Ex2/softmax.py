@@ -13,15 +13,15 @@ def softmax(x):
     http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html
 
     You should also make sure that your code works for a single
-    N-dimensional vector (treat the vector as a single row) and
-    for M x N matrices. This may be useful for testing later. Also,
+    D-dimensional vector (treat the vector as a single row) and
+    for N x D matrices. This may be useful for testing later. Also,
     make sure that the dimensions of the output match the input.
 
     You must implement the optimization in problem 1(a) of the
     written assignment!
 
     Arguments:
-    x -- A N dimensional vector or M x N dimensional numpy matrix.
+    x -- A D dimensional vector or N x D dimensional numpy matrix.
 
     Return:
     x -- You are allowed to modify x in-place
@@ -29,16 +29,16 @@ def softmax(x):
     orig_shape = x.shape
 
     if len(x.shape) > 1:
-        # Matrix
-        ### YOUR CODE HERE
-        raise NotImplementedError
-        ### END YOUR CODE
-    else:
-        # Vector
-        ### YOUR CODE HERE
-        raise NotImplementedError
-        ### END YOUR CODE
+        x = x - x.max(axis=1).reshape(-1, 1)
+        x = np.exp(x)
+        row_sum = np.sum(x, axis=1)
+        x = x / row_sum
 
+    else:
+        x = x - x.max()
+        x = np.exp(x)
+        x_sum = np.sum(x)
+        x = x / x_sum
     assert x.shape == orig_shape
     return x
 
@@ -77,9 +77,10 @@ def test_softmax():
     your tests be graded.
     """
     print "Running your tests..."
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    test1 = softmax(np.array([0, 0]))
+    print test1
+    ans1 = np.array([0.5,  0.5])
+    assert np.allclose(test1, ans1, rtol=1e-05, atol=1e-06)
 
 
 if __name__ == "__main__":
