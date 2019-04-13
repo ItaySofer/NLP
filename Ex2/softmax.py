@@ -32,7 +32,7 @@ def softmax(x):
         x = x - x.max(axis=1).reshape(-1, 1)
         x = np.exp(x)
         row_sum = np.sum(x, axis=1)
-        x = x / row_sum
+        x = x / row_sum.reshape((-1, 1))
 
     else:
         x = x - x.max()
