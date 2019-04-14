@@ -99,7 +99,7 @@ def eval_neural_lm(eval_data_path):
     ### YOUR CODE HERE
     sum_log_2_p = 0
     for i in range(num_of_examples):
-        input_vec = num_to_word_embedding[in_word_index[i]]
+        input_vec = np.array(num_to_word_embedding[in_word_index[i]])
         label = out_word_index[i]
         p = forward(input_vec, label, params, dimensions)
         sum_log_2_p += np.log2(p)
