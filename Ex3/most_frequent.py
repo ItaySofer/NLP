@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from data import *
 
 def most_frequent_train(train_data):
@@ -6,8 +8,21 @@ def most_frequent_train(train_data):
     Returns a dictionary that maps every word in the training set to its most frequent tag.
     """
     ### YOUR CODE HERE
-    raise NotImplementedError
+    word_to_tags_dict = defaultdict(lambda: defaultdict(int))
+    for sent in train_data:
+        for word_tag_pair in sent:
+            word, tag = word_tag_pair
+            word_to_tags_dict[word][tag] += 1
+
+    result = dict()
+    for word, tag_count_dict in word_to_tags_dict.items():
+        tag_count_pairs_sorted = list(sorted(tag_count_dict.items(), key=lambda tag_count_pair: tag_count_pair[1], reverse=True))
+        most_frequent_tag = tag_count_pairs_sorted[0][0]
+        result[word] = most_frequent_tag
+
+    return result
     ### END YOUR CODE
+
 
 def most_frequent_eval(test_set, pred_tags):
     """
@@ -15,7 +30,17 @@ def most_frequent_eval(test_set, pred_tags):
     Returns an evaluation of the accuracy of the most frequent tagger.
     """
     ### YOUR CODE HERE
-    raise NotImplementedError
+    correct = 0
+    total = 0
+    for sent in test_set:
+        for word_tag_pair in sent:
+            word, tag = word_tag_pair
+            if word in pred_tags:
+                if pred_tags[word] == tag:
+                    correct += 1
+        total += len(sent)
+
+    return float(correct) / total
     ### END YOUR CODE
 
 if __name__ == "__main__":
