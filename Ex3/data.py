@@ -1,10 +1,14 @@
 import os
+import re
 MIN_FREQ = 3
+
+
 def invert_dict(d):
     res = {}
     for k, v in d.iteritems():
         res[v] = k
     return res
+
 
 def read_conll_pos_file(path):
     """
@@ -23,6 +27,7 @@ def read_conll_pos_file(path):
                 curr.append((tokens[1],tokens[3]))
     return sents
 
+
 def increment_count(count_dict, key):
     """
         Puts the key in the dictionary if does not exist or adds one if it does.
@@ -35,6 +40,7 @@ def increment_count(count_dict, key):
     else:
         count_dict[key] = 1
 
+
 def compute_vocab_count(sents):
     """
         Takes a corpus and computes all words and the number of times they appear
@@ -45,14 +51,44 @@ def compute_vocab_count(sents):
             increment_count(vocab, token[0])
     return vocab
 
+
 def replace_word(word):
     """
         Replaces rare words with categories (numbers, dates, etc...)
     """
     ### YOUR CODE HERE
-    raise NotImplementedError
+    alpha = re.compile("[a-zA-Z]")
+    numeric = re.compile("[0-9]")
+    dash = re.compile("-")
+    slash = re.compile("\\\\")
+    comma = re.compile(",")
+    period = re.compile(".")
+    caps = re.compile("[A-Z]")
+    panct = re.compile("[,.!?]")
+
+    if word.isdigit():
+        return "num"
+    if numeric.search(word) is not None and alpha.search(word) is not None:
+        return "containsDigitAndAlpha"
+    if numeric.search(word) is not None and dash.search(word) is not None:
+        return "containsDigitAndDash"
+    if numeric.search(word) is not None and slash.search(word) is not None:
+        return "containsDigitAndSlash"
+    if numeric.search(word) is not None and comma.search(word) is not None:
+        return "containsDigitAndComma"
+    if numeric.search(word) is not None and period.search(word) is not None:
+        return "containsDigitAndPeriod"
+    if word.isupper():
+        return "allCaps"
+    if caps.match(word):
+        return "initCap"
+    if word.isapha() and caps.match(word) is None:
+        return "lowerCase"
+    if panct.search(word):
+        return "punct"
     ### END YOUR CODE
     return "UNK"
+
 
 def preprocess_sent(vocab, sents):
     """
