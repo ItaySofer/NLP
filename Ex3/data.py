@@ -82,7 +82,7 @@ def replace_word(word):
         return "allCaps"
     if caps.match(word):
         return "initCap"
-    if word.isapha() and caps.match(word) is None:
+    if word.isalpha() and caps.match(word) is None:
         return "lowerCase"
     if panct.search(word):
         return "punct"
