@@ -26,7 +26,13 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
     features = {}
     features['word'] = curr_word
     ### YOUR CODE HERE
-    raise NotImplementedError
+    features.update([("prefix_" + str(i), curr_word[:i]) for i in range(1, min(5, len(curr_word) + 1))])
+    features.update([("suffix_" + str(i), curr_word[-i:]) for i in range(1, min(5, len(curr_word) + 1))])
+    features["prevprev_tag_prev_tag"] = prevprev_tag + "_" + prev_tag
+    features["prev_tag"] = prev_tag
+    features["prev_word"] = prev_word
+    features["prevprev_word"] = prevprev_word
+    features["next_word"] = next_word
     ### END YOUR CODE
     return features
 
