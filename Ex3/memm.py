@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import copy
 
 from data import *
 from sklearn.feature_extraction import DictVectorizer
@@ -86,37 +87,29 @@ def memm_greedy(sent, logreg, vec, index_to_tag_dict, extra_decoding_arguments):
     return predicted_tags
 
 
-def predict_scores(prevprev_tag, prev_tag, sent_index, sent, logreg, vec):
-    tags = [""] * len(sent)
-    if sent_index > 1:
-        tags[sent_index-2] = prevprev_tag
-    if sent_index > 0:
-        tags[sent_index-1] = prev_tag
-
-    features = extract_features(zip(sent, tags), sent_index)
-    return logreg.predict_log_proba(vectorize_features(vec, features))[0]
-
-
-def calc_q(v, t, u, k, sent, logreg, vec, index_to_tag_dict, q_cache):
-    if (t, u, k) not in q_cache:
-        q_cache[(t, u, k)] = predict_scores(index_to_tag_dict[t], index_to_tag_dict[u], k - 1, sent, logreg, vec)
-
-    return q_cache[(t, u, k)][v]
-
-
 def build_initial_pi():
-    pi = defaultdict(lambda: defaultdict(int))
+    pi = defaultdict(lambda: defaultdict(lambda: float("-inf")))
     pi[0][(tag_to_idx_dict["*"], tag_to_idx_dict["*"])] = 0  # working in log space for numerical precision
     return pi
 
 
-def build_Sk(index_to_tag_dict, sent):
-    tag_to_idx_dict = invert_dict(index_to_tag_dict)
-    S = sorted(index_to_tag_dict.keys())[:-1]  # remove * from possible tags
+def update_features(features, prevprev_tag, prev_tag):
+    features["prevprev_tag_prev_tag"] = prevprev_tag + "_" + prev_tag
+    features["prev_tag"] = prev_tag
 
-    Sk = {-1: [tag_to_idx_dict["*"]], 0: [tag_to_idx_dict["*"]]}
-    Sk.update([(i, S) for i in range(1, len(sent) + 1)])
-    return Sk
+    return features
+
+
+def create_all_inputs(tagged_sent_mock, i, preprev_prev_tag_pairs, index_to_tag_dict):
+    features = extract_features(tagged_sent_mock, i)
+
+    all_examples = []
+    for t, u in preprev_prev_tag_pairs:
+        features = update_features(features, index_to_tag_dict[t], index_to_tag_dict[u])
+        all_examples.append(copy(features))
+
+    return all_examples
+
 
 
 def memm_viterbi(sent, logreg, vec, index_to_tag_dict, extra_decoding_arguments):
@@ -128,20 +121,21 @@ def memm_viterbi(sent, logreg, vec, index_to_tag_dict, extra_decoding_arguments)
     ### YOUR CODE HERE
 
     # build dynamic programming chart
-    Sk = build_Sk(index_to_tag_dict, sent)
+    S = sorted(index_to_tag_dict.keys())[:-1]  # removing '*' from possible tags
     pi = build_initial_pi()
     bp = defaultdict(lambda: defaultdict(int))
+    tagged_sent_mock = [(word, "#") for word in sent]
 
-    q_cache = {}
     for k in range(1, len(sent) + 1):
-        for u, v in zip(Sk[k-1], Sk[k]):
-            t_score_pairs = []
-            for t in Sk[k-2]:
-                score = pi[k-1][(t, u)] + calc_q(v, t, u, k, sent, logreg, vec, index_to_tag_dict, q_cache)
-                t_score_pairs.append((t, score))
-            max_t_score_pair = max(t_score_pairs, key=lambda pair: pair[1])
-            pi[k][(u, v)] = max_t_score_pair[1]
-            bp[k][(u, v)] = max_t_score_pair[0]
+        t_u_inputs = pi[k - 1].keys()
+        inputs = create_all_inputs(tagged_sent_mock, k - 1, t_u_inputs, index_to_tag_dict)
+        log_proba = logreg.predict_log_proba(vec.transform(inputs))
+        for i, (t, u) in enumerate(t_u_inputs):
+            for v in S:
+                score = pi[k-1][(t, u)] + log_proba[i][v]  # "plus" because we are working in log space
+                if pi[k][(u, v)] < score:
+                    pi[k][(u, v)] = score
+                    bp[k][(u, v)] = t
 
     # infer tags
     n = len(sent)
@@ -185,11 +179,11 @@ def memm_eval(test_data, logreg, vec, index_to_tag_dict, extra_decoding_argument
         tags = [pair[1] for pair in sen]
 
         greedy_predicted_tags = memm_greedy(sent_words, logreg, vec, index_to_tag_dict, extra_decoding_arguments)
-        compare_greedy = [(tags[i] == greedy_predicted_tags[i]) for i in range(len(sen))]
+        compare_greedy = [(tags[j] == greedy_predicted_tags[j]) for j in range(len(sen))]
         correct_greedy_preds += sum(compare_greedy)
 
         viterbi_predicted_tags = memm_viterbi(sent_words, logreg, vec, index_to_tag_dict, extra_decoding_arguments)
-        compare_viterbi = [(tags[i] == viterbi_predicted_tags[i]) for i in range(len(sen))]
+        compare_viterbi = [(tags[j] == viterbi_predicted_tags[j]) for j in range(len(sen))]
         correct_viterbi_preds += sum(compare_viterbi)
 
         total_words_count += len(sent_words)
@@ -264,6 +258,7 @@ if __name__ == "__main__":
 
     logreg = linear_model.LogisticRegression(
         multi_class='multinomial', max_iter=128, solver='lbfgs', C=100000, verbose=1)
+
     print "Fitting..."
     start = time.time()
     logreg.fit(train_examples_vectorized, train_labels)
