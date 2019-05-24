@@ -121,7 +121,6 @@
 1   Mark    !
 
 1   CC  and
-1   CC  or
 
 1   Comp  that
 
