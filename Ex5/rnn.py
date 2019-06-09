@@ -313,7 +313,10 @@ class RNNModel(NERModel):
             pred: tf.Tensor of shape (batch_size, max_length, n_classes)
         """
         ### YOUR CODE HERE (~4-6 lines)
-
+        gru_cell = tf.nn.rnn_cell.GRUCell(Config.hidden_size)
+        outputs, _ = tf.nn.dynamic_rnn(gru_cell, x, dtype=tf.float32)
+        dropouts = tf.nn.dropout(outputs, keep_prob=self.dropout_placeholder)
+        preds = tf.layers.dense(dropouts, self.config.n_classes)
         ### END YOUR CODE
 
         return preds
@@ -419,12 +422,20 @@ class RNNModel(NERModel):
         records = []
 
         ### YOUR CODE HERE (~5-10 lines)
-
+        records.append(tf.summary.histogram("Prediction logits histogram", pred))
+        records.append(tf.summary.scalar("Loss", loss))
+        records.append(tf.summary.scalar("Avg Entropy", self.calc_avg_entropy(pred)))
         ### END YOUR CODE
 
         assert hasattr(self, 'probs'), "self.probs should be set."
         summary = tf.summary.merge(records)
         return summary
+
+    def calc_avg_entropy(self, pred):
+        self.probs = tf.nn.softmax(pred)
+        entropies = tf.reduce_sum(tf.multiply(-1 * self.probs, tf.log(tf.clip_by_value(self.probs, 0, 1))), axis=1)
+        avg_entropy = tf.reduce_mean(entropies)
+        return avg_entropy
 
     def preprocess_sequence_data(self, examples):
         def featurize_windows(data, start, end, window_size = 1):
