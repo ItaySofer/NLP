@@ -110,7 +110,11 @@ def pad_sequences(data, max_length):
 
     for sentence, labels in data:
         ### YOUR CODE HERE (~4-6 lines)
-
+        addition_size = max_length - len(sentence)
+        padded_sent = sentence + [zero_vector] * addition_size
+        padded_labels = labels + [zero_label] * addition_size
+        mask = [True] * len(sentence) + [False] * addition_size
+        ret.append((padded_sent[:max_length], padded_labels[:max_length], mask[:max_length]))
         ### END YOUR CODE ###
     return ret
 
@@ -149,7 +153,10 @@ class RNNModel(NERModel):
         (Don't change the variable names)
         """
         ### YOUR CODE HERE (~4-6 lines)
-
+        self.input_placeholder = tf.placeholder(tf.int32, shape=(None, self.max_length, self.config.n_features))
+        self.labels_placeholder = tf.placeholder(tf.int32, shape=(None, self.max_length))
+        self.mask_placeholder = tf.placeholder(tf.bool, shape=(None, self.max_length))
+        self.dropout_placeholder = tf.placeholder(tf.float32)
         ### END YOUR CODE
 
     def create_feed_dict(self, inputs_batch, mask_batch, labels_batch=None, dropout=1.0):
@@ -175,7 +182,15 @@ class RNNModel(NERModel):
             feed_dict: The feed dictionary mapping from placeholders to values.
         """
         ### YOUR CODE (~6-10 lines)
-
+        feed_dict = {}
+        if inputs_batch is not None:
+            feed_dict[self.input_placeholder] = inputs_batch
+        if labels_batch is not None:
+            feed_dict[self.labels_placeholder] = labels_batch
+        if mask_batch is not None:
+            feed_dict[self.mask_placeholder] = mask_batch
+        if dropout is not None:
+            feed_dict[self.dropout_placeholder] = dropout
         ### END YOUR CODE
         return feed_dict
 
@@ -200,7 +215,9 @@ class RNNModel(NERModel):
             embeddings: tf.Tensor of shape (None, max_length, n_features*embed_size)
         """
         ### YOUR CODE HERE (~4-6 lines)
-
+        embedding_variable = tf.Variable(self.pretrained_embeddings)
+        embeddings = tf.nn.embedding_lookup(embedding_variable, self.input_placeholder)
+        embeddings = tf.reshape(embeddings, (-1, self.max_length, self.config.n_features * self.config.embed_size))
         ### END YOUR CODE
         return embeddings
 
@@ -211,7 +228,7 @@ class RNNModel(NERModel):
                 o_t, h_t = cell(x_t, h_{t-1})
                 o_drop_t = Dropout(o_t, dropout_rate)
                 y_t = o_drop_t U + b_2
-    
+
         TODO: There a quite a few things you'll need to do in this function:
             - Define the variables U, b_2.
             - Define the vector h as a constant and inititalize it with
@@ -234,12 +251,12 @@ class RNNModel(NERModel):
         Hint: You will find the function tf.transpose and the perms
               argument useful to shuffle the indices of the tensor.
               https://www.tensorflow.org/api_docs/python/tf/transpose
-    
+
         Remember:
             * Use the xavier initilization for matrices.
             * Note that tf.nn.dropout takes the keep probability (1 - p_drop) as an argument.
             The keep probability should be set to the value of self.dropout_placeholder
-    
+
         Returns:
             pred: tf.Tensor of shape (batch_size, max_length, n_classes)
         """
@@ -250,18 +267,29 @@ class RNNModel(NERModel):
         # Define U and b2 as variables.
         # Initialize state as vector of zeros.
         ### YOUR CODE HERE (~4-6 lines)
-
+        U = tf.get_variable("U",
+                            shape=(self.config.hidden_size, self.config.n_classes),
+                            initializer=tf.contrib.layers.xavier_initializer(seed=1))
+        b2 = tf.get_variable("b2",
+                            shape=(self.config.n_classes,),
+                            initializer=tf.contrib.layers.xavier_initializer(seed=3))
+        h = tf.zeros((tf.shape(x)[0], self.config.hidden_size))
         ### END YOUR CODE
 
         with tf.variable_scope("RNN"):
             for time_step in range(self.max_length):
                 ### YOUR CODE HERE (~6-10 lines)
-
+                if time_step > 0:
+                    tf.get_variable_scope().reuse_variables()
+                o, h = cell(x[:, time_step, :], h, scope="RNN")
+                o_drop = tf.nn.dropout(o, keep_prob=self.dropout_placeholder)
+                y = tf.matmul(o_drop, U) + b2
+                preds.append(y)
                 ### END YOUR CODE
 
         # Make sure to reshape @preds here.
         ### YOUR CODE HERE (~2-4 lines)
-
+        preds = tf.stack(preds, axis=1)
         ### END YOUR CODE
 
         return preds
@@ -274,7 +302,7 @@ class RNNModel(NERModel):
             - Apply a dropout
             - Create a dynamic RNN
             - Transfer the RNN outputs though a single layer feed-forward neural network.
-              The function tf.layers.dense can be useful here. 
+              The function tf.layers.dense can be useful here.
               https://www.tensorflow.org/api_docs/python/tf/layers/dense
 
         Remember:
@@ -328,7 +356,9 @@ class RNNModel(NERModel):
             loss: A 0-d tensor (scalar)
         """
         ### YOUR CODE HERE (~2-4 lines)
-
+        losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.boolean_mask(self.labels_placeholder, self.mask_placeholder),
+                                                                logits=tf.boolean_mask(preds, self.mask_placeholder))
+        loss = tf.reduce_mean(losses)
         ### END YOUR CODE
         return loss
 
@@ -352,7 +382,8 @@ class RNNModel(NERModel):
             train_op: The Op for training.
         """
         ### YOUR CODE HERE (~1-2 lines)
-
+        optimizer = tf.train.AdamOptimizer(self.config.lr)
+        train_op = optimizer.minimize(loss)
         ### END YOUR CODE
         return train_op
 
@@ -362,18 +393,18 @@ class RNNModel(NERModel):
         Generates summaries about the model to be displayed by TensorBoard.
         https://www.tensorflow.org/api_docs/python/tf/summary
         for more information.
-        
+
         TODO: Append to the 'records' list 3 summaries:
             - add histogram summary of the prediction logits (pred)
             - a scalar summary of the average loss (loss)
             - a scalar summary of the average prediction entropy:
-                - transform the prediction logits tensors into probability tensors, by directly applying softmax. 
+                - transform the prediction logits tensors into probability tensors, by directly applying softmax.
                   You can use the function tf.nn.softmax
                     https://www.tensorflow.org/api_docs/python/tf/nn/softmax
                 - store the results in "self.probs" (self.probs = ...)
                 - use these probabilities to calculate the entropy, also use the function tf.log
                     https://www.tensorflow.org/api_docs/python/tf/log
-            
+
         Remember: clip the probability values before applying the logarithm function, with
                   the function tf.clip_by_value.
                     https://www.tensorflow.org/api_docs/python/tf/clip_by_value
